@@ -12,17 +12,17 @@ pub mod error;
 
 /// Raw CBOR codec.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct CborCodec;
+pub struct RawCborCodec;
 
-impl Codec for CborCodec {}
+impl Codec for RawCborCodec {}
 
-impl From<CborCodec> for u64 {
-    fn from(_: CborCodec) -> Self {
+impl From<RawCborCodec> for u64 {
+    fn from(_: RawCborCodec) -> Self {
         0x51
     }
 }
 
-impl TryFrom<u64> for CborCodec {
+impl TryFrom<u64> for RawCborCodec {
     type Error = UnsupportedCodec;
 
     fn try_from(_: u64) -> core::result::Result<Self, Self::Error> {
@@ -31,9 +31,9 @@ impl TryFrom<u64> for CborCodec {
 }
 
 /// Marker trait for types supporting the `CborCodec`.
-pub trait Cbor42: Encode<CborCodec> + Decode<CborCodec> {}
+pub trait Cbor42: Encode<RawCborCodec> + Decode<RawCborCodec> {}
 
-impl<T: Encode<CborCodec> + Decode<CborCodec>> Cbor42 for T {}
+impl<T: Encode<RawCborCodec> + Decode<RawCborCodec>> Cbor42 for T {}
 
 #[cfg(test)]
 mod tests {
@@ -54,8 +54,8 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": cid,
         });
-        let bytes = CborCodec.encode(&ipld).unwrap();
-        let ipld2 = CborCodec.decode(&bytes).unwrap();
+        let bytes = RawCborCodec.encode(&ipld).unwrap();
+        let ipld2 = RawCborCodec.decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 
@@ -65,9 +65,9 @@ mod tests {
         let ipld = ipld!({
             "list": [true, cid],
         });
-        let bytes = CborCodec.encode(&ipld).unwrap();
+        let bytes = RawCborCodec.encode(&ipld).unwrap();
         let mut set = HashSet::new();
-        CborCodec.references::<Ipld, _>(&bytes, &mut set).unwrap();
+        RawCborCodec.references::<Ipld, _>(&bytes, &mut set).unwrap();
         assert!(set.contains(&cid));
     }
 }

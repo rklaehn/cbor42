@@ -1,11 +1,11 @@
 [package]
-name = "cbor42"
+name = "libipld-raw-cbor"
 version = "0.1.0"
 authors = ["Rüdiger Klaehn", "David Craven <david@craven.ch>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "ipld raw cbor codec"
-repository = "https://github.com/rklaehn/cbor42"
+repository = "https://github.com/rklaehn/libipld-raw-cbor"
 
 [dependencies]
 byteorder = "1.4.3"

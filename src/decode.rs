@@ -1,7 +1,7 @@
 //! CBOR decoder
 use crate::{
     error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof, UnknownTag},
-    CborCodec,
+    RawCborCodec,
 };
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
@@ -78,7 +78,7 @@ pub fn read_str<R: Read + Seek>(r: &mut R, len: usize) -> Result<String> {
 }
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list<R: Read + Seek, T: Decode<CborCodec>>(r: &mut R, len: usize) -> Result<Vec<T>> {
+pub fn read_list<R: Read + Seek, T: Decode<RawCborCodec>>(r: &mut R, len: usize) -> Result<Vec<T>> {
     // Limit up-front allocations to 16KiB as the length is user controlled.
     //
     // Can't make this "const" because the generic, but it _should_ be known at compile time.
@@ -86,13 +86,13 @@ pub fn read_list<R: Read + Seek, T: Decode<CborCodec>>(r: &mut R, len: usize) ->
 
     let mut list: Vec<T> = Vec::with_capacity(len.min(max_alloc));
     for _ in 0..len {
-        list.push(T::decode(CborCodec, r)?);
+        list.push(T::decode(RawCborCodec, r)?);
     }
     Ok(list)
 }
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list_il<R: Read + Seek, T: Decode<CborCodec>>(r: &mut R) -> Result<Vec<T>> {
+pub fn read_list_il<R: Read + Seek, T: Decode<RawCborCodec>>(r: &mut R) -> Result<Vec<T>> {
     let mut list: Vec<T> = Vec::new();
     loop {
         let major = read_u8(r)?;
@@ -100,28 +100,28 @@ pub fn read_list_il<R: Read + Seek, T: Decode<CborCodec>>(r: &mut R) -> Result<V
             break;
         }
         r.seek(SeekFrom::Current(-1))?;
-        let value = T::decode(CborCodec, r)?;
+        let value = T::decode(RawCborCodec, r)?;
         list.push(value);
     }
     Ok(list)
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map<R: Read + Seek, K: Decode<CborCodec> + Ord, T: Decode<CborCodec>>(
+pub fn read_map<R: Read + Seek, K: Decode<RawCborCodec> + Ord, T: Decode<RawCborCodec>>(
     r: &mut R,
     len: usize,
 ) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
     for _ in 0..len {
-        let key = K::decode(CborCodec, r)?;
-        let value = T::decode(CborCodec, r)?;
+        let key = K::decode(RawCborCodec, r)?;
+        let value = T::decode(RawCborCodec, r)?;
         map.insert(key, value);
     }
     Ok(map)
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map_il<R: Read + Seek, K: Decode<CborCodec> + Ord, T: Decode<CborCodec>>(
+pub fn read_map_il<R: Read + Seek, K: Decode<RawCborCodec> + Ord, T: Decode<RawCborCodec>>(
     r: &mut R,
 ) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
@@ -131,8 +131,8 @@ pub fn read_map_il<R: Read + Seek, K: Decode<CborCodec> + Ord, T: Decode<CborCod
             break;
         }
         r.seek(SeekFrom::Current(-1))?;
-        let key = K::decode(CborCodec, r)?;
-        let value = T::decode(CborCodec, r)?;
+        let key = K::decode(RawCborCodec, r)?;
+        let value = T::decode(RawCborCodec, r)?;
         map.insert(key, value);
     }
     Ok(map)
@@ -176,8 +176,8 @@ pub fn read_len<R: Read + Seek>(r: &mut R, major: u8) -> Result<usize> {
     })
 }
 
-impl Decode<CborCodec> for bool {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for bool {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xf4 => false,
@@ -190,8 +190,8 @@ impl Decode<CborCodec> for bool {
     }
 }
 
-impl Decode<CborCodec> for u8 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for u8 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x00..=0x17 => major,
@@ -204,8 +204,8 @@ impl Decode<CborCodec> for u8 {
     }
 }
 
-impl Decode<CborCodec> for u16 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for u16 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x00..=0x17 => major as u16,
@@ -219,8 +219,8 @@ impl Decode<CborCodec> for u16 {
     }
 }
 
-impl Decode<CborCodec> for u32 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for u32 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x00..=0x17 => major as u32,
@@ -235,8 +235,8 @@ impl Decode<CborCodec> for u32 {
     }
 }
 
-impl Decode<CborCodec> for u64 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for u64 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x00..=0x17 => major as u64,
@@ -252,8 +252,8 @@ impl Decode<CborCodec> for u64 {
     }
 }
 
-impl Decode<CborCodec> for i8 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for i8 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x20..=0x37 => -1 - (major - 0x20) as i8,
@@ -266,8 +266,8 @@ impl Decode<CborCodec> for i8 {
     }
 }
 
-impl Decode<CborCodec> for i16 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for i16 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x20..=0x37 => -1 - (major - 0x20) as i16,
@@ -281,8 +281,8 @@ impl Decode<CborCodec> for i16 {
     }
 }
 
-impl Decode<CborCodec> for i32 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for i32 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x20..=0x37 => -1 - (major - 0x20) as i32,
@@ -297,8 +297,8 @@ impl Decode<CborCodec> for i32 {
     }
 }
 
-impl Decode<CborCodec> for i64 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for i64 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x20..=0x37 => -1 - (major - 0x20) as i64,
@@ -314,8 +314,8 @@ impl Decode<CborCodec> for i64 {
     }
 }
 
-impl Decode<CborCodec> for f32 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for f32 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xfa => read_f32(r)?,
@@ -327,8 +327,8 @@ impl Decode<CborCodec> for f32 {
     }
 }
 
-impl Decode<CborCodec> for f64 {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for f64 {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xfa => read_f32(r)? as f64,
@@ -341,8 +341,8 @@ impl Decode<CborCodec> for f64 {
     }
 }
 
-impl Decode<CborCodec> for String {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for String {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x60..=0x7b => {
@@ -357,8 +357,8 @@ impl Decode<CborCodec> for String {
     }
 }
 
-impl Decode<CborCodec> for Cid {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for Cid {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         if major == 0xd8 {
             if let Ok(tag) = read_u8(r) {
@@ -371,8 +371,8 @@ impl Decode<CborCodec> for Cid {
     }
 }
 
-impl Decode<CborCodec> for Box<[u8]> {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for Box<[u8]> {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x40..=0x5b => {
@@ -387,8 +387,8 @@ impl Decode<CborCodec> for Box<[u8]> {
     }
 }
 
-impl<T: Decode<CborCodec>> Decode<CborCodec> for Option<T> {
-    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
+impl<T: Decode<RawCborCodec>> Decode<RawCborCodec> for Option<T> {
+    fn decode<R: Read + Seek>(c: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xf6 => None,
@@ -402,8 +402,8 @@ impl<T: Decode<CborCodec>> Decode<CborCodec> for Option<T> {
     }
 }
 
-impl<T: Decode<CborCodec>> Decode<CborCodec> for Vec<T> {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl<T: Decode<RawCborCodec>> Decode<RawCborCodec> for Vec<T> {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x80..=0x9b => {
@@ -419,8 +419,8 @@ impl<T: Decode<CborCodec>> Decode<CborCodec> for Vec<T> {
     }
 }
 
-impl<K: Decode<CborCodec> + Ord, T: Decode<CborCodec>> Decode<CborCodec> for BTreeMap<K, T> {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl<K: Decode<RawCborCodec> + Ord, T: Decode<RawCborCodec>> Decode<RawCborCodec> for BTreeMap<K, T> {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xa0..=0xbb => {
@@ -437,8 +437,8 @@ impl<K: Decode<CborCodec> + Ord, T: Decode<CborCodec>> Decode<CborCodec> for BTr
 }
 
 /// Note that since CBOR is a superset of IPLD, this is not guaranteed to succeed for arbitrary CBOR.
-impl Decode<CborCodec> for Ipld {
-    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for Ipld {
+    fn decode<R: Read + Seek>(_: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let ipld = match major {
             // Major type 0: an unsigned integer
@@ -514,9 +514,9 @@ impl Decode<CborCodec> for Ipld {
     }
 }
 
-impl References<CborCodec> for Ipld {
+impl References<RawCborCodec> for Ipld {
     fn references<R: Read + Seek, E: Extend<Cid>>(
-        c: CborCodec,
+        c: RawCborCodec,
         r: &mut R,
         set: &mut E,
     ) -> Result<()> {
@@ -568,7 +568,7 @@ impl References<CborCodec> for Ipld {
             0x80..=0x9b => {
                 let len = read_len(r, major - 0x80)?;
                 for _ in 0..len {
-                    <Self as References<CborCodec>>::references(c, r, set)?;
+                    <Self as References<RawCborCodec>>::references(c, r, set)?;
                 }
             }
 
@@ -579,15 +579,15 @@ impl References<CborCodec> for Ipld {
                     break;
                 }
                 r.seek(SeekFrom::Current(-1))?;
-                <Self as References<CborCodec>>::references(c, r, set)?;
+                <Self as References<RawCborCodec>>::references(c, r, set)?;
             },
 
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
                 for _ in 0..len {
-                    <Self as References<CborCodec>>::references(c, r, set)?;
-                    <Self as References<CborCodec>>::references(c, r, set)?;
+                    <Self as References<RawCborCodec>>::references(c, r, set)?;
+                    <Self as References<RawCborCodec>>::references(c, r, set)?;
                 }
             }
 
@@ -598,8 +598,8 @@ impl References<CborCodec> for Ipld {
                     break;
                 }
                 r.seek(SeekFrom::Current(-1))?;
-                <Self as References<CborCodec>>::references(c, r, set)?;
-                <Self as References<CborCodec>>::references(c, r, set)?;
+                <Self as References<RawCborCodec>>::references(c, r, set)?;
+                <Self as References<RawCborCodec>>::references(c, r, set)?;
             },
 
             // Major type 6: optional semantic tagging of other major types
@@ -608,7 +608,7 @@ impl References<CborCodec> for Ipld {
                 if tag == 42 {
                     set.extend(std::iter::once(read_link(r)?));
                 } else {
-                    <Self as References<CborCodec>>::references(c, r, set)?;
+                    <Self as References<RawCborCodec>>::references(c, r, set)?;
                 }
             }
 
@@ -632,14 +632,14 @@ impl References<CborCodec> for Ipld {
     }
 }
 
-impl<T: Decode<CborCodec>> Decode<CborCodec> for Arc<T> {
-    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
+impl<T: Decode<RawCborCodec>> Decode<RawCborCodec> for Arc<T> {
+    fn decode<R: Read + Seek>(c: RawCborCodec, r: &mut R) -> Result<Self> {
         Ok(Arc::new(T::decode(c, r)?))
     }
 }
 
-impl Decode<CborCodec> for () {
-    fn decode<R: Read + Seek>(_c: CborCodec, r: &mut R) -> Result<Self> {
+impl Decode<RawCborCodec> for () {
+    fn decode<R: Read + Seek>(_c: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         match major {
             0x80 => {}
@@ -651,8 +651,8 @@ impl Decode<CborCodec> for () {
     }
 }
 
-impl<A: Decode<CborCodec>> Decode<CborCodec> for (A,) {
-    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
+impl<A: Decode<RawCborCodec>> Decode<RawCborCodec> for (A,) {
+    fn decode<R: Read + Seek>(c: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x81 => (A::decode(c, r)?,),
@@ -664,8 +664,8 @@ impl<A: Decode<CborCodec>> Decode<CborCodec> for (A,) {
     }
 }
 
-impl<A: Decode<CborCodec>, B: Decode<CborCodec>> Decode<CborCodec> for (A, B) {
-    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
+impl<A: Decode<RawCborCodec>, B: Decode<RawCborCodec>> Decode<RawCborCodec> for (A, B) {
+    fn decode<R: Read + Seek>(c: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x82 => (A::decode(c, r)?, B::decode(c, r)?),
@@ -677,10 +677,10 @@ impl<A: Decode<CborCodec>, B: Decode<CborCodec>> Decode<CborCodec> for (A, B) {
     }
 }
 
-impl<A: Decode<CborCodec>, B: Decode<CborCodec>, C: Decode<CborCodec>> Decode<CborCodec>
+impl<A: Decode<RawCborCodec>, B: Decode<RawCborCodec>, C: Decode<RawCborCodec>> Decode<RawCborCodec>
     for (A, B, C)
 {
-    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(c: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x83 => (A::decode(c, r)?, B::decode(c, r)?, C::decode(c, r)?),
@@ -692,10 +692,10 @@ impl<A: Decode<CborCodec>, B: Decode<CborCodec>, C: Decode<CborCodec>> Decode<Cb
     }
 }
 
-impl<A: Decode<CborCodec>, B: Decode<CborCodec>, C: Decode<CborCodec>, D: Decode<CborCodec>>
-    Decode<CborCodec> for (A, B, C, D)
+impl<A: Decode<RawCborCodec>, B: Decode<RawCborCodec>, C: Decode<RawCborCodec>, D: Decode<RawCborCodec>>
+    Decode<RawCborCodec> for (A, B, C, D)
 {
-    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(c: RawCborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x84 => (
@@ -712,7 +712,7 @@ impl<A: Decode<CborCodec>, B: Decode<CborCodec>, C: Decode<CborCodec>, D: Decode
     }
 }
 
-impl SkipOne for CborCodec {
+impl SkipOne for RawCborCodec {
     fn skip<R: Read + Seek>(&self, r: &mut R) -> Result<()> {
         let major = read_u8(r)?;
         match major {
@@ -842,7 +842,7 @@ impl SkipOne for CborCodec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::UnexpectedEof, CborCodec};
+    use crate::{error::UnexpectedEof, RawCborCodec};
     use libipld_core::codec::Codec;
     use libipld_macro::ipld;
 
@@ -862,7 +862,7 @@ mod tests {
             "Fun": true,
             "Amt": -2,
         });
-        let ipld2: Ipld = CborCodec.decode(&bytes).unwrap();
+        let ipld2: Ipld = RawCborCodec.decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 
@@ -873,7 +873,7 @@ mod tests {
             0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // very long
             0x01, // but only one byte.
         ];
-        CborCodec
+        RawCborCodec
             .decode::<Ipld>(&bytes)
             .expect_err("decoding large truncated buffer should have failed")
             .downcast::<UnexpectedEof>()
@@ -884,27 +884,27 @@ mod tests {
     #[allow(clippy::let_unit_value)]
     fn tuples() -> Result<()> {
         let data = ();
-        let bytes = CborCodec.encode(&data)?;
-        let _data2: () = CborCodec.decode(&bytes)?;
+        let bytes = RawCborCodec.encode(&data)?;
+        let _data2: () = RawCborCodec.decode(&bytes)?;
 
         let data = ("hello".to_string(),);
-        let bytes = CborCodec.encode(&data)?;
-        let data2: (String,) = CborCodec.decode(&bytes)?;
+        let bytes = RawCborCodec.encode(&data)?;
+        let data2: (String,) = RawCborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
 
         let data = ("hello".to_string(), "world".to_string());
-        let bytes = CborCodec.encode(&data)?;
-        let data2: (String, String) = CborCodec.decode(&bytes)?;
+        let bytes = RawCborCodec.encode(&data)?;
+        let data2: (String, String) = RawCborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
 
         let data = ("hello".to_string(), "world".to_string(), 42);
-        let bytes = CborCodec.encode(&data)?;
-        let data2: (String, String, u32) = CborCodec.decode(&bytes)?;
+        let bytes = RawCborCodec.encode(&data)?;
+        let data2: (String, String, u32) = RawCborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
 
         let data = ("hello".to_string(), "world".to_string(), 42, 64);
-        let bytes = CborCodec.encode(&data)?;
-        let data2: (String, String, u32, u8) = CborCodec.decode(&bytes)?;
+        let bytes = RawCborCodec.encode(&data)?;
+        let data2: (String, String, u32, u8) = RawCborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
 
         Ok(())
