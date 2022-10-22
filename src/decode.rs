@@ -1,15 +1,22 @@
 //! CBOR decoder
-use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof, UnknownTag};
-use crate::CborCodec as DagCbor;
+use crate::{
+    error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof, UnknownTag},
+    CborCodec,
+};
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
-use libipld_core::codec::{Decode, References};
-use libipld_core::error::Result;
-use libipld_core::ipld::Ipld;
-use libipld_core::{cid::Cid, raw_value::SkipOne};
-use std::collections::BTreeMap;
-use std::io::{Read, Seek, SeekFrom};
-use std::sync::Arc;
+use libipld_core::{
+    cid::Cid,
+    codec::{Decode, References},
+    error::Result,
+    ipld::Ipld,
+    raw_value::SkipOne,
+};
+use std::{
+    collections::BTreeMap,
+    io::{Read, Seek, SeekFrom},
+    sync::Arc,
+};
 
 /// Reads a u8 from a byte stream.
 pub fn read_u8<R: Read + Seek>(r: &mut R) -> Result<u8> {
@@ -71,7 +78,7 @@ pub fn read_str<R: Read + Seek>(r: &mut R, len: usize) -> Result<String> {
 }
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: usize) -> Result<Vec<T>> {
+pub fn read_list<R: Read + Seek, T: Decode<CborCodec>>(r: &mut R, len: usize) -> Result<Vec<T>> {
     // Limit up-front allocations to 16KiB as the length is user controlled.
     //
     // Can't make this "const" because the generic, but it _should_ be known at compile time.
@@ -79,13 +86,13 @@ pub fn read_list<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R, len: usize) -> R
 
     let mut list: Vec<T> = Vec::with_capacity(len.min(max_alloc));
     for _ in 0..len {
-        list.push(T::decode(DagCbor, r)?);
+        list.push(T::decode(CborCodec, r)?);
     }
     Ok(list)
 }
 
 /// Reads a list of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_list_il<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R) -> Result<Vec<T>> {
+pub fn read_list_il<R: Read + Seek, T: Decode<CborCodec>>(r: &mut R) -> Result<Vec<T>> {
     let mut list: Vec<T> = Vec::new();
     loop {
         let major = read_u8(r)?;
@@ -93,28 +100,28 @@ pub fn read_list_il<R: Read + Seek, T: Decode<DagCbor>>(r: &mut R) -> Result<Vec
             break;
         }
         r.seek(SeekFrom::Current(-1))?;
-        let value = T::decode(DagCbor, r)?;
+        let value = T::decode(CborCodec, r)?;
         list.push(value);
     }
     Ok(list)
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
+pub fn read_map<R: Read + Seek, K: Decode<CborCodec> + Ord, T: Decode<CborCodec>>(
     r: &mut R,
     len: usize,
 ) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
     for _ in 0..len {
-        let key = K::decode(DagCbor, r)?;
-        let value = T::decode(DagCbor, r)?;
+        let key = K::decode(CborCodec, r)?;
+        let value = T::decode(CborCodec, r)?;
         map.insert(key, value);
     }
     Ok(map)
 }
 
 /// Reads a map of any type that implements `TryReadCbor` from a stream of cbor encoded bytes.
-pub fn read_map_il<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>(
+pub fn read_map_il<R: Read + Seek, K: Decode<CborCodec> + Ord, T: Decode<CborCodec>>(
     r: &mut R,
 ) -> Result<BTreeMap<K, T>> {
     let mut map: BTreeMap<K, T> = BTreeMap::new();
@@ -124,8 +131,8 @@ pub fn read_map_il<R: Read + Seek, K: Decode<DagCbor> + Ord, T: Decode<DagCbor>>
             break;
         }
         r.seek(SeekFrom::Current(-1))?;
-        let key = K::decode(DagCbor, r)?;
-        let value = T::decode(DagCbor, r)?;
+        let key = K::decode(CborCodec, r)?;
+        let value = T::decode(CborCodec, r)?;
         map.insert(key, value);
     }
     Ok(map)
@@ -169,8 +176,8 @@ pub fn read_len<R: Read + Seek>(r: &mut R, major: u8) -> Result<usize> {
     })
 }
 
-impl Decode<DagCbor> for bool {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for bool {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xf4 => false,
@@ -183,8 +190,8 @@ impl Decode<DagCbor> for bool {
     }
 }
 
-impl Decode<DagCbor> for u8 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for u8 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x00..=0x17 => major,
@@ -197,8 +204,8 @@ impl Decode<DagCbor> for u8 {
     }
 }
 
-impl Decode<DagCbor> for u16 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for u16 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x00..=0x17 => major as u16,
@@ -212,8 +219,8 @@ impl Decode<DagCbor> for u16 {
     }
 }
 
-impl Decode<DagCbor> for u32 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for u32 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x00..=0x17 => major as u32,
@@ -228,8 +235,8 @@ impl Decode<DagCbor> for u32 {
     }
 }
 
-impl Decode<DagCbor> for u64 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for u64 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x00..=0x17 => major as u64,
@@ -245,8 +252,8 @@ impl Decode<DagCbor> for u64 {
     }
 }
 
-impl Decode<DagCbor> for i8 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for i8 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x20..=0x37 => -1 - (major - 0x20) as i8,
@@ -259,8 +266,8 @@ impl Decode<DagCbor> for i8 {
     }
 }
 
-impl Decode<DagCbor> for i16 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for i16 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x20..=0x37 => -1 - (major - 0x20) as i16,
@@ -274,8 +281,8 @@ impl Decode<DagCbor> for i16 {
     }
 }
 
-impl Decode<DagCbor> for i32 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for i32 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x20..=0x37 => -1 - (major - 0x20) as i32,
@@ -290,8 +297,8 @@ impl Decode<DagCbor> for i32 {
     }
 }
 
-impl Decode<DagCbor> for i64 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for i64 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x20..=0x37 => -1 - (major - 0x20) as i64,
@@ -307,8 +314,8 @@ impl Decode<DagCbor> for i64 {
     }
 }
 
-impl Decode<DagCbor> for f32 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for f32 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xfa => read_f32(r)?,
@@ -320,8 +327,8 @@ impl Decode<DagCbor> for f32 {
     }
 }
 
-impl Decode<DagCbor> for f64 {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for f64 {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xfa => read_f32(r)? as f64,
@@ -334,8 +341,8 @@ impl Decode<DagCbor> for f64 {
     }
 }
 
-impl Decode<DagCbor> for String {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for String {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x60..=0x7b => {
@@ -350,8 +357,8 @@ impl Decode<DagCbor> for String {
     }
 }
 
-impl Decode<DagCbor> for Cid {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for Cid {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         if major == 0xd8 {
             if let Ok(tag) = read_u8(r) {
@@ -364,8 +371,8 @@ impl Decode<DagCbor> for Cid {
     }
 }
 
-impl Decode<DagCbor> for Box<[u8]> {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for Box<[u8]> {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x40..=0x5b => {
@@ -380,8 +387,8 @@ impl Decode<DagCbor> for Box<[u8]> {
     }
 }
 
-impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
-    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+impl<T: Decode<CborCodec>> Decode<CborCodec> for Option<T> {
+    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xf6 => None,
@@ -395,8 +402,8 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Option<T> {
     }
 }
 
-impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl<T: Decode<CborCodec>> Decode<CborCodec> for Vec<T> {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x80..=0x9b => {
@@ -412,8 +419,8 @@ impl<T: Decode<DagCbor>> Decode<DagCbor> for Vec<T> {
     }
 }
 
-impl<K: Decode<DagCbor> + Ord, T: Decode<DagCbor>> Decode<DagCbor> for BTreeMap<K, T> {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+impl<K: Decode<CborCodec> + Ord, T: Decode<CborCodec>> Decode<CborCodec> for BTreeMap<K, T> {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0xa0..=0xbb => {
@@ -429,8 +436,9 @@ impl<K: Decode<DagCbor> + Ord, T: Decode<DagCbor>> Decode<DagCbor> for BTreeMap<
     }
 }
 
-impl Decode<DagCbor> for Ipld {
-    fn decode<R: Read + Seek>(_: DagCbor, r: &mut R) -> Result<Self> {
+/// Note that since CBOR is a superset of IPLD, this is not guaranteed to succeed for arbitrary CBOR.
+impl Decode<CborCodec> for Ipld {
+    fn decode<R: Read + Seek>(_: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let ipld = match major {
             // Major type 0: an unsigned integer
@@ -481,11 +489,7 @@ impl Decode<DagCbor> for Ipld {
             }
 
             // Major type 5: a map of pairs of data items (indefinite length)
-            0xbf => {
-                let pos = r.seek(SeekFrom::Current(0))?;
-                r.seek(SeekFrom::Start(pos))?;
-                Self::Map(read_map_il(r)?)
-            }
+            0xbf => Self::Map(read_map_il(r)?),
 
             // Major type 6: optional semantic tagging of other major types
             0xd8 => {
@@ -510,9 +514,9 @@ impl Decode<DagCbor> for Ipld {
     }
 }
 
-impl References<DagCbor> for Ipld {
+impl References<CborCodec> for Ipld {
     fn references<R: Read + Seek, E: Extend<Cid>>(
-        c: DagCbor,
+        c: CborCodec,
         r: &mut R,
         set: &mut E,
     ) -> Result<()> {
@@ -564,7 +568,7 @@ impl References<DagCbor> for Ipld {
             0x80..=0x9b => {
                 let len = read_len(r, major - 0x80)?;
                 for _ in 0..len {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+                    <Self as References<CborCodec>>::references(c, r, set)?;
                 }
             }
 
@@ -575,15 +579,15 @@ impl References<DagCbor> for Ipld {
                     break;
                 }
                 r.seek(SeekFrom::Current(-1))?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
+                <Self as References<CborCodec>>::references(c, r, set)?;
             },
 
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
                 for _ in 0..len {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+                    <Self as References<CborCodec>>::references(c, r, set)?;
+                    <Self as References<CborCodec>>::references(c, r, set)?;
                 }
             }
 
@@ -594,8 +598,8 @@ impl References<DagCbor> for Ipld {
                     break;
                 }
                 r.seek(SeekFrom::Current(-1))?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
-                <Self as References<DagCbor>>::references(c, r, set)?;
+                <Self as References<CborCodec>>::references(c, r, set)?;
+                <Self as References<CborCodec>>::references(c, r, set)?;
             },
 
             // Major type 6: optional semantic tagging of other major types
@@ -604,7 +608,7 @@ impl References<DagCbor> for Ipld {
                 if tag == 42 {
                     set.extend(std::iter::once(read_link(r)?));
                 } else {
-                    <Self as References<DagCbor>>::references(c, r, set)?;
+                    <Self as References<CborCodec>>::references(c, r, set)?;
                 }
             }
 
@@ -628,14 +632,14 @@ impl References<DagCbor> for Ipld {
     }
 }
 
-impl<T: Decode<DagCbor>> Decode<DagCbor> for Arc<T> {
-    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+impl<T: Decode<CborCodec>> Decode<CborCodec> for Arc<T> {
+    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
         Ok(Arc::new(T::decode(c, r)?))
     }
 }
 
-impl Decode<DagCbor> for () {
-    fn decode<R: Read + Seek>(_c: DagCbor, r: &mut R) -> Result<Self> {
+impl Decode<CborCodec> for () {
+    fn decode<R: Read + Seek>(_c: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         match major {
             0x80 => {}
@@ -647,8 +651,8 @@ impl Decode<DagCbor> for () {
     }
 }
 
-impl<A: Decode<DagCbor>> Decode<DagCbor> for (A,) {
-    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+impl<A: Decode<CborCodec>> Decode<CborCodec> for (A,) {
+    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x81 => (A::decode(c, r)?,),
@@ -660,8 +664,8 @@ impl<A: Decode<DagCbor>> Decode<DagCbor> for (A,) {
     }
 }
 
-impl<A: Decode<DagCbor>, B: Decode<DagCbor>> Decode<DagCbor> for (A, B) {
-    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+impl<A: Decode<CborCodec>, B: Decode<CborCodec>> Decode<CborCodec> for (A, B) {
+    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x82 => (A::decode(c, r)?, B::decode(c, r)?),
@@ -673,8 +677,10 @@ impl<A: Decode<DagCbor>, B: Decode<DagCbor>> Decode<DagCbor> for (A, B) {
     }
 }
 
-impl<A: Decode<DagCbor>, B: Decode<DagCbor>, C: Decode<DagCbor>> Decode<DagCbor> for (A, B, C) {
-    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+impl<A: Decode<CborCodec>, B: Decode<CborCodec>, C: Decode<CborCodec>> Decode<CborCodec>
+    for (A, B, C)
+{
+    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x83 => (A::decode(c, r)?, B::decode(c, r)?, C::decode(c, r)?),
@@ -686,10 +692,10 @@ impl<A: Decode<DagCbor>, B: Decode<DagCbor>, C: Decode<DagCbor>> Decode<DagCbor>
     }
 }
 
-impl<A: Decode<DagCbor>, B: Decode<DagCbor>, C: Decode<DagCbor>, D: Decode<DagCbor>> Decode<DagCbor>
-    for (A, B, C, D)
+impl<A: Decode<CborCodec>, B: Decode<CborCodec>, C: Decode<CborCodec>, D: Decode<CborCodec>>
+    Decode<CborCodec> for (A, B, C, D)
 {
-    fn decode<R: Read + Seek>(c: DagCbor, r: &mut R) -> Result<Self> {
+    fn decode<R: Read + Seek>(c: CborCodec, r: &mut R) -> Result<Self> {
         let major = read_u8(r)?;
         let result = match major {
             0x84 => (
@@ -706,7 +712,7 @@ impl<A: Decode<DagCbor>, B: Decode<DagCbor>, C: Decode<DagCbor>, D: Decode<DagCb
     }
 }
 
-impl SkipOne for DagCbor {
+impl SkipOne for CborCodec {
     fn skip<R: Read + Seek>(&self, r: &mut R) -> Result<()> {
         let major = read_u8(r)?;
         match major {

@@ -30,7 +30,7 @@ impl TryFrom<u64> for CborCodec {
     }
 }
 
-/// Marker trait for types supporting the `DagCborCodec`.
+/// Marker trait for types supporting the `CborCodec`.
 pub trait Cbor42: Encode<CborCodec> + Decode<CborCodec> {}
 
 impl<T: Encode<CborCodec> + Decode<CborCodec>> Cbor42 for T {}
