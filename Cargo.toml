@@ -6,6 +6,8 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "ipld raw cbor codec"
 repository = "https://github.com/rklaehn/libipld-raw-cbor"
+keywords = ["ipld", "serialization"]
+categories = ["encoding"]
 
 [dependencies]
 byteorder = "1.4.3"
