@@ -1,4 +1,4 @@
-use libipld_cbor::DagCborCodec;
+use cbor42::CborCodec;
 use libipld_core::{
     cid::Cid,
     codec::References,
@@ -24,8 +24,8 @@ fn roundtrip_with_cid() {
         "a163666f6fd82a582300122031c3d57080d8463a3c63b2923df5a1d40ad7a73eae5a14af584213e5f504ac33";
     let input = hex::decode(input).unwrap();
 
-    let ipld: Ipld = DagCborCodec.decode(&input).unwrap();
-    let bytes = DagCborCodec.encode(&ipld).unwrap().to_vec();
+    let ipld: Ipld = CborCodec.decode(&input).unwrap();
+    let bytes = CborCodec.encode(&ipld).unwrap().to_vec();
 
     assert_eq!(input, bytes);
 }
@@ -36,7 +36,7 @@ fn invalid_cid_prefix() {
     let input =
         "a163666f6fd82a582301122031c3d57080d8463a3c63b2923df5a1d40ad7a73eae5a14af584213e5f504ac33";
     let input = hex::decode(input).unwrap();
-    let _: Ipld = DagCborCodec.decode(&input).unwrap();
+    let _: Ipld = CborCodec.decode(&input).unwrap();
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn invalid_cid_prefix() {
 fn zero_length_cid() {
     let input = "a163666f6fd82a5800";
     let input = hex::decode(input).unwrap();
-    let _: Ipld = DagCborCodec.decode(&input).unwrap();
+    let _: Ipld = CborCodec.decode(&input).unwrap();
 }
 
 // test SkipOne trait for cbor
@@ -54,11 +54,11 @@ fn skip() {
     let input = "a163666f6fd82a5800a163666f6fd82a5800ffffff";
     let input = hex::decode(input).unwrap();
     let mut r = Cursor::new(&input);
-    DagCborCodec.skip(&mut r).unwrap();
+    CborCodec.skip(&mut r).unwrap();
     assert_eq!(r.position(), 9);
-    DagCborCodec.skip(&mut r).unwrap();
+    CborCodec.skip(&mut r).unwrap();
     assert_eq!(r.position(), 18);
-    assert!(DagCborCodec.skip(&mut r).is_err());
+    assert!(CborCodec.skip(&mut r).is_err());
 }
 
 // test IgnoredAny, which does use skip internally
@@ -68,11 +68,11 @@ fn ignored_any() {
     let input = "a163666f6fd82a5800a163666f6fd82a5800ffffff";
     let input = hex::decode(input).unwrap();
     let mut r = Cursor::new(&input);
-    let _x: IgnoredAny = Decode::decode(DagCborCodec, &mut r).unwrap();
+    let _x: IgnoredAny = Decode::decode(CborCodec, &mut r).unwrap();
     assert_eq!(r.position(), 9);
-    let _x: IgnoredAny = Decode::decode(DagCborCodec, &mut r).unwrap();
+    let _x: IgnoredAny = Decode::decode(CborCodec, &mut r).unwrap();
     assert_eq!(r.position(), 18);
-    let r: result::Result<IgnoredAny, _> = Decode::decode(DagCborCodec, &mut r);
+    let r: result::Result<IgnoredAny, _> = Decode::decode(CborCodec, &mut r);
     assert!(r.is_err());
 }
 
@@ -83,13 +83,13 @@ fn raw_value() {
     let input = "a163666f6fd82a5800a163666f6fd82a5800ffffff";
     let input = hex::decode(input).unwrap();
     let mut r = Cursor::new(&input);
-    let raw: RawValue<DagCborCodec> = Decode::decode(DagCborCodec, &mut r).unwrap();
+    let raw: RawValue<CborCodec> = Decode::decode(CborCodec, &mut r).unwrap();
     assert_eq!(r.position(), 9);
     assert_eq!(raw.as_ref(), &hex::decode("a163666f6fd82a5800").unwrap());
-    let raw: RawValue<DagCborCodec> = Decode::decode(DagCborCodec, &mut r).unwrap();
+    let raw: RawValue<CborCodec> = Decode::decode(CborCodec, &mut r).unwrap();
     assert_eq!(r.position(), 18);
     assert_eq!(raw.as_ref(), &hex::decode("a163666f6fd82a5800").unwrap());
-    let r: result::Result<RawValue<DagCborCodec>, _> = Decode::decode(DagCborCodec, &mut r);
+    let r: result::Result<RawValue<CborCodec>, _> = Decode::decode(CborCodec, &mut r);
     assert!(r.is_err());
 }
 
@@ -97,7 +97,7 @@ fn raw_value() {
 fn indefinite_length_skip() {
     let data = hex::decode("9fa163666f6fd82a58250001711220f3bffba2b0bbc80a1c4ba39c789bb8e1eef08dc2792e4beb0fbaff1369b7a035ff").unwrap();
     let mut r = Cursor::new(&data);
-    assert!(IgnoredAny::decode(DagCborCodec, &mut r).is_ok());
+    assert!(IgnoredAny::decode(CborCodec, &mut r).is_ok());
     assert_eq!(r.position(), 48);
 }
 
@@ -106,9 +106,7 @@ fn indefinite_length_refs() {
     let data = hex::decode("9fa163666f6fd82a58250001711220f3bffba2b0bbc80a1c4ba39c789bb8e1eef08dc2792e4beb0fbaff1369b7a035ff").unwrap();
     let mut refs = Vec::new();
     let mut r = Cursor::new(&data);
-    assert!(
-        <Ipld as References<DagCborCodec>>::references(DagCborCodec, &mut r, &mut refs).is_ok()
-    );
+    assert!(<Ipld as References<CborCodec>>::references(CborCodec, &mut r, &mut refs).is_ok());
     assert_eq!(
         refs[0],
         Cid::from_str("bafyreihtx752fmf3zafbys5dtr4jxohb53yi3qtzfzf6wd5274jwtn5agu").unwrap()
@@ -120,5 +118,5 @@ fn indefinite_length_refs() {
 #[test]
 #[should_panic]
 fn test_assert_roundtrip() {
-    assert_roundtrip(DagCborCodec, &1u64, &Ipld::Integer(2));
+    assert_roundtrip(CborCodec, &1u64, &Ipld::Integer(2));
 }

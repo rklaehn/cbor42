@@ -1,6 +1,6 @@
 //! CBOR encoder.
 use crate::error::NumberOutOfRange;
-use crate::DagCborCodec as DagCbor;
+use crate::CborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use libipld_core::cid::Cid;
 use libipld_core::codec::Encode;
@@ -262,15 +262,8 @@ impl Encode<DagCbor> for Ipld {
             Self::Bytes(b) => b.as_slice().encode(c, w),
             Self::String(s) => s.encode(c, w),
             Self::List(l) => l.encode(c, w),
-            Self::StringMap(m) => m.encode(c, w),
-            #[cfg(feature = "unleashed")]
-            Self::IntegerMap(m) => m.encode(c, w),
+            Self::Map(m) => m.encode(c, w),
             Self::Link(cid) => cid.encode(c, w),
-            #[cfg(feature = "unleashed")]
-            Self::Tag(tag, ipld) => {
-                write_tag(w, *tag)?;
-                ipld.encode(c, w)
-            }
         }
     }
 }

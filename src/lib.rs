@@ -10,19 +10,19 @@ pub mod decode;
 pub mod encode;
 pub mod error;
 
-/// CBOR codec.
+/// Raw CBOR codec.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DagCborCodec;
+pub struct CborCodec;
 
-impl Codec for DagCborCodec {}
+impl Codec for CborCodec {}
 
-impl From<DagCborCodec> for u64 {
-    fn from(_: DagCborCodec) -> Self {
-        0x71
+impl From<CborCodec> for u64 {
+    fn from(_: CborCodec) -> Self {
+        0x51
     }
 }
 
-impl TryFrom<u64> for DagCborCodec {
+impl TryFrom<u64> for CborCodec {
     type Error = UnsupportedCodec;
 
     fn try_from(_: u64) -> core::result::Result<Self, Self::Error> {
@@ -31,17 +31,17 @@ impl TryFrom<u64> for DagCborCodec {
 }
 
 /// Marker trait for types supporting the `DagCborCodec`.
-pub trait DagCbor: Encode<DagCborCodec> + Decode<DagCborCodec> {}
+pub trait Cbor42: Encode<CborCodec> + Decode<CborCodec> {}
 
-impl<T: Encode<DagCborCodec> + Decode<DagCborCodec>> DagCbor for T {}
+impl<T: Encode<CborCodec> + Decode<CborCodec>> Cbor42 for T {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use libipld_core::cid::Cid;
     use libipld_core::ipld::Ipld;
-    use libipld_core::multihash::{Code, MultihashDigest};
     use libipld_macro::ipld;
+    use multihash::{Code, MultihashDigest};
     use std::collections::HashSet;
 
     #[test]
@@ -54,8 +54,8 @@ mod tests {
           "map": { "float": 0.0, "string": "hello" },
           "link": cid,
         });
-        let bytes = DagCborCodec.encode(&ipld).unwrap();
-        let ipld2 = DagCborCodec.decode(&bytes).unwrap();
+        let bytes = CborCodec.encode(&ipld).unwrap();
+        let ipld2 = CborCodec.decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 
@@ -65,11 +65,9 @@ mod tests {
         let ipld = ipld!({
             "list": [true, cid],
         });
-        let bytes = DagCborCodec.encode(&ipld).unwrap();
+        let bytes = CborCodec.encode(&ipld).unwrap();
         let mut set = HashSet::new();
-        DagCborCodec
-            .references::<Ipld, _>(&bytes, &mut set)
-            .unwrap();
+        CborCodec.references::<Ipld, _>(&bytes, &mut set).unwrap();
         assert!(set.contains(&cid));
     }
 }

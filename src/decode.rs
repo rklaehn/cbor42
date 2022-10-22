@@ -1,6 +1,6 @@
 //! CBOR decoder
 use crate::error::{InvalidCidPrefix, LengthOutOfRange, UnexpectedCode, UnexpectedEof, UnknownTag};
-use crate::DagCborCodec as DagCbor;
+use crate::CborCodec as DagCbor;
 use byteorder::{BigEndian, ByteOrder};
 use core::convert::TryFrom;
 use libipld_core::codec::{Decode, References};
@@ -477,26 +477,14 @@ impl Decode<DagCbor> for Ipld {
             // Major type 5: a map of pairs of data items
             0xa0..=0xbb => {
                 let len = read_len(r, major - 0xa0)?;
-                #[cfg(feature = "unleashed")]
-                if len > 0 {
-                    let pos = r.seek(SeekFrom::Current(0))?;
-                    if let Ok(map) = read_map(r, len as usize) {
-                        return Ok(Self::IntegerMap(map));
-                    }
-                    r.seek(SeekFrom::Start(pos))?;
-                }
-                Self::StringMap(read_map(r, len as usize)?)
+                Self::Map(read_map(r, len as usize)?)
             }
 
             // Major type 5: a map of pairs of data items (indefinite length)
             0xbf => {
                 let pos = r.seek(SeekFrom::Current(0))?;
-                #[cfg(feature = "unleashed")]
-                if let Ok(map) = read_map_il(r) {
-                    return Ok(Self::IntegerMap(map));
-                }
                 r.seek(SeekFrom::Start(pos))?;
-                Self::StringMap(read_map_il(r)?)
+                Self::Map(read_map_il(r)?)
             }
 
             // Major type 6: optional semantic tagging of other major types
@@ -505,10 +493,7 @@ impl Decode<DagCbor> for Ipld {
                 if tag == 42 {
                     Self::Link(read_link(r)?)
                 } else {
-                    #[cfg(not(feature = "unleashed"))]
                     return Err(UnknownTag(tag).into());
-                    #[cfg(feature = "unleashed")]
-                    Self::Tag(tag as _, Box::new(Self::decode(DagCbor, r)?))
                 }
             }
 
@@ -851,7 +836,7 @@ impl SkipOne for DagCbor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{error::UnexpectedEof, DagCborCodec};
+    use crate::{error::UnexpectedEof, CborCodec};
     use libipld_core::codec::Codec;
     use libipld_macro::ipld;
 
@@ -871,7 +856,7 @@ mod tests {
             "Fun": true,
             "Amt": -2,
         });
-        let ipld2: Ipld = DagCborCodec.decode(&bytes).unwrap();
+        let ipld2: Ipld = CborCodec.decode(&bytes).unwrap();
         assert_eq!(ipld, ipld2);
     }
 
@@ -882,7 +867,7 @@ mod tests {
             0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // very long
             0x01, // but only one byte.
         ];
-        DagCborCodec
+        CborCodec
             .decode::<Ipld>(&bytes)
             .expect_err("decoding large truncated buffer should have failed")
             .downcast::<UnexpectedEof>()
@@ -890,29 +875,30 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::let_unit_value)]
     fn tuples() -> Result<()> {
         let data = ();
-        let bytes = DagCborCodec.encode(&data)?;
-        let _data2: () = DagCborCodec.decode(&bytes)?;
+        let bytes = CborCodec.encode(&data)?;
+        let _data2: () = CborCodec.decode(&bytes)?;
 
         let data = ("hello".to_string(),);
-        let bytes = DagCborCodec.encode(&data)?;
-        let data2: (String,) = DagCborCodec.decode(&bytes)?;
+        let bytes = CborCodec.encode(&data)?;
+        let data2: (String,) = CborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
 
         let data = ("hello".to_string(), "world".to_string());
-        let bytes = DagCborCodec.encode(&data)?;
-        let data2: (String, String) = DagCborCodec.decode(&bytes)?;
+        let bytes = CborCodec.encode(&data)?;
+        let data2: (String, String) = CborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
 
         let data = ("hello".to_string(), "world".to_string(), 42);
-        let bytes = DagCborCodec.encode(&data)?;
-        let data2: (String, String, u32) = DagCborCodec.decode(&bytes)?;
+        let bytes = CborCodec.encode(&data)?;
+        let data2: (String, String, u32) = CborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
 
         let data = ("hello".to_string(), "world".to_string(), 42, 64);
-        let bytes = DagCborCodec.encode(&data)?;
-        let data2: (String, String, u32, u8) = DagCborCodec.decode(&bytes)?;
+        let bytes = CborCodec.encode(&data)?;
+        let data2: (String, String, u32, u8) = CborCodec.decode(&bytes)?;
         assert_eq!(data, data2);
 
         Ok(())
